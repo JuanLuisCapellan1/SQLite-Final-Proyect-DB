@@ -1,0 +1,1314 @@
+--VIEWS:
+
+--ELIMINAMOS LA VISTA Data_Load_record SI EXISTE, DONDE PODEMOS VER LOS DATOS DE LA TABLA HISTORIAL(load_record)
+drop view if exists Data_Load_record;
+
+--CREAMOS LA VISTA Data_Load_record DONDE PODEMOS VER LOS DATOS DE LA TABLA HISTORIAL(load_record)
+Create view Data_Load_record as select l.* from load_record as l;
+
+
+--ELIMINAMOS LA VISTA DATA_LOAD_RECORD_CREATED
+DROP VIEW IF EXISTS DATA_LOAD_RECORD_CREATED;
+
+--VISTA PARA BUSCAR TODOS LOS REGISTROS DE HISTORIAL QUE SE HAN ACTUALIZADO
+CREATE VIEW DATA_LOAD_RECORD_CREATED AS select * from Data_Load_record where created_at is not null;
+
+
+--ELIMINAMOS LA VISTA DATA_LOAD_RECORD_DELETED
+DROP VIEW IF EXISTS DATA_LOAD_RECORD_DELETED;
+
+--VISTA PARA BUSCAR TODOS LOS REGISTROS DE HISTORIAL QUE SE HAN ELIMINADO
+CREATE VIEW DATA_LOAD_RECORD_DELETED AS select * from Data_Load_record where deleted_at is not null;
+
+--ELIMINAMOS LA VISTA DATA_USER_PRODUCT_BAG DONDE VEMOS LOS DATOS DE LA TABLA BAG CON SUS DATOS ENLASADOS
+DROP VIEW IF EXISTS DATA_USER_PRODUCT_BAG;
+
+--CREAMOS LA VISTA DATA_USER_PRODUCT_BAG DONDE ESTAN TODOS LOS DATOS DE LA TABLA BAG
+CREATE VIEW DATA_USER_PRODUCT_BAG AS 
+select id_user as 'ID del usuario',u.name as 'Nombre del usuario',p.name as 'Nombre producto',p.sale_price,p.stock,p.quantity_Discount from Bag 
+as b JOIN User as u on id_user = u.id  join Products as p on id_product = p.id;
+
+--ELIMANOS LA VISTA Users_in_bag DONDE OBTENEMOS LOS NOMBRES DE LOS USUARIOS QUE TIENEN ALGUN ProductO EN LA BOLSA;
+DROP VIEW IF EXISTS Users_in_bag;
+
+--CREAMOS LA VISTA User_in_bag EN LA CUAL TENEMOS LOS NOMBRES DE LOS USUARIOS QUE TIENEN ALGUN PRODUCTO EN LA BOLSA (BAG)
+create view Users_in_bag as select DISTINCT name from User as u join Bag as b on id_user = u.id;
+
+
+--ELIMINAMOS LA VISTA Users_Products_in_bag DONDE OBTENEMOS LOS USUARIOS QUE TIENEN ALGUN ARTICULO EN LA BOLSA(BAG)
+DROP VIEW IF EXISTS User_Count_Products_in_bag;
+
+--CREAMOS LA VISTA Users_Products_in_bag DONDE OBTENEMOS LOS USUARIOS QUE TIENEN ALGUN ARTICULO EN LA BOLSA(BAG)
+create view User_Count_Products_in_bag as select DISTINCT u.name,count(p.name) from User as u join Bag as b on id_user = u.id join Products as p on id_product = p.id GROUP by u.name;
+
+
+--ELIMINAMOS LA VISTA DATA_PRODUCT_SUPPLIER DONDE SE MUESTRAN LOS DATOS DEL SUPLIDOR JUNTO CON LOS DEL PRODUCTO
+DROP VIEW IF EXISTS DATA_PRODUCT_SUPPLIER;
+
+--CREAMOS LA VISTA DATA_PRODUCT_SUPPLIER DONDE SE MUESTRAN LOS DATOS DEL SUPLIDOR JUNTO CON LOS DEL PRODUCTO
+CREATE VIEW DATA_PRODUCT_SUPPLIER AS 
+select s.direction,s.name as 'Name of Supplier',p.name as 'Name of Products',purchase_price,sale_price,entry_date,stock from Products as p join Supplier as s on id_supplier = s.id order by p.id;
+
+
+--ELIMINAMOS LA VISTA DATA_PRODUCT_ALL QUE CONTIENE TODOS LOS DATOS DE LA TABLA PRODUCTOS
+DROP VIEW IF EXISTS DATA_PRODUCT_ALL;
+
+--SE MUESTRAN TODOS LOS DATOS IMPORTANTES DE LA TABLA PRODUCTOS ENLAZADOS CON TODAS LAS TABLAS CORRESPONDIENTES
+CREATE VIEW DATA_PRODUCT_ALL AS SELECT p.name AS 'NAME OF PRODUCT',p.purchase_price,p.sale_price,p.entry_date,p.stock,p.size as 'Size of Product',p.quantity_Discount,
+s.name AS 'NAME OF SUPPLIER',s.email AS 'EMAIL OF SUPPLIER',c.name as 'Name of Category', c.sex as 'Sex of Product' FROM Products AS p JOIN Supplier AS s ON id_supplier = s.id JOIN Category AS c ON p.id_category = c.id;
+
+
+
+--ELIMINAMOS LA VISTA DATA_SALES_ALL DONDE SE MUESTRAN TODOS LOS DATOS IMPORTANTES PARA LA VENTA ES DECIR TODAS LAS TABLAS ENLAZADAS
+DROP VIEW IF EXISTS DATA_SALES_ALL;
+
+
+--SE MUESTRAN TODOS LOS DATOS IMPORTANTES DE LAS TABLAS ENLAZADOS CON TODAS LAS TABLAS CORRESPONDIENTES
+CREATE VIEW DATA_SALES_ALL AS
+select user.id as 'ID of User',user.name as 'Name of User', products.name as 'Name of Product', Products.sale_price as 'Sale Price',SALES.quantity as 'Quantity',
+Products.quantity_Discount as 'Discount', Products.sale_price * SALES.quantity as 'Sub Total' ,
+(Products.sale_price * SALES.quantity)-((Products.sale_price * SALES.quantity)*Products.quantity_Discount) as 'Total At Purchase', SALES.date as 'Date',
+Category.name as 'Name of Category For Products', Category.sex as 'Sex For Products'
+from SALES join User on sales.id_user = User.id join Products on SALES.id_product = Products.id join Category on Products.id_category = Category.id;
+
+
+
+
+--ELLIMINAMOS LA VISTA Data_sending_all DONDE SE MUESTRAN TODOS LOS DATOS IMPORTANTES DE LA SENDING ENLAZADA CON TODAS LAS TABLAS CORRESPONDIENTES
+DROP VIEW IF EXISTS Data_sending_all;
+
+
+--TRIGGER DONDE SE MUESTRAN TODOS LOS DATOS IMPORTANTES DE LA SENDING ENLAZADA CON TODAS LAS TABLAS CORRESPONDIENTES
+create view Data_sending_all as
+select SENDING.id as 'Id Of The Sending', user.id as 'ID of User',user.name as 'Name of User', user.direction as 'Direction',products.name as 'Name of Product',SALES.quantity as 'Quantity',
+(Products.sale_price * SALES.quantity)-((Products.sale_price * SALES.quantity)*Products.quantity_Discount) as 'Total', SALES.date as 'Date', sending.taxes as 'Taxes',
+SENDING.taxes + ((Products.sale_price * SALES.quantity)-((Products.sale_price * SALES.quantity)*Products.quantity_Discount)) as 'Total At Purchase'
+from SENDING join SALES on SENDING.id_sales = SALES.id join User on sales.id_user = User.id join Products on SALES.id_product = Products.id order by user.id;
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+--TRIGGERS DE LA TABLA USER
+
+--Eliminamos si existe el trigger de validacion para el correo electronico
+drop TRIGGER IF EXISTS validate_email_before_insert_User;
+
+--Trigger que valida la entrada del correo electronico del usuario
+CREATE TRIGGER validate_email_before_insert_User
+ BEFORE INSERT ON User
+BEGIN
+   SELECT
+      CASE	
+	WHEN NEW.email NOT LIKE '%_@__%.__%' THEN
+   	  RAISE (ABORT,'Invalid Email Address')
+       END;
+END;
+
+
+
+
+
+--Eliminamos si existe el Trigger de la modificacion incorrecta del email
+drop TRIGGER IF EXISTS validate_email_before_update_User;
+
+--Trigger que valida la modificacion del correo electronico del usuario
+CREATE TRIGGER validate_email_before_update_User
+ BEFORE UPDATE ON User
+BEGIN
+   SELECT
+      CASE
+		WHEN NEW.email NOT LIKE '%_@__%.__%' THEN
+   	  RAISE (ABORT,'Invalid Email Address')
+       END;
+END;
+
+--ELIMINAMOS SI EXISTE EL TRIGGER DE LA VALIDACION DE LA CONTRASEÃ‘A ANTES DE SER INTRODUCIDA
+DROP TRIGGER IF EXISTS VALIDATE_PASSWORD_BEFORE_INSERT;
+
+
+--CREAMOS EL TRIGGER DONDE VALIDAMOS QUE LA CONTRASEÃ‘A EMPIECE CON UN CARACTER EN MAYUSCULA ANTES DE CUALQUIER INSERCION EN LA TABLA USER
+CREATE TRIGGER VALIDATE_PASSWORD_BEFORE_INSERT 
+BEFORE INSERT ON User
+BEGIN
+	SELECT
+		CASE
+			WHEN substr(new.password,'1','1') <> upper(substr(new.password,'1','1'))THEN
+				RAISE (ABORT,'THE PASSWORD MUST START WITH A UPPER LETTER')
+		End;
+End;
+
+--ELIMINAMOS EL TRIGGER SI EXISTE DONDE SE VALIDA LA CONTRASEÃ‘A ANTES DE CUALQUIER MODIFICACION
+DROP TRIGGER IF EXISTS VALIDATE_PASSWORD_BEFORE_UPDATE;
+
+
+--CREAMOS EL TRIGGER DONDE VALIDAMOS QUE LA CONTRASEÃ‘A EMPIECE CON UN CARACTER EN MAYUSCULA ANTES DE CUALQUIER MODIFICACION EN LA TABLA USER
+CREATE TRIGGER VALIDATE_PASSWORD_BEFORE_UPDATE 
+ BEFORE UPDATE ON User
+BEGIN
+   SELECT
+      CASE
+		WHEN substr(new.password,'1','1') <> upper(substr(new.password,'1','1')) THEN
+   	  RAISE (ABORT,'THE PASSWORD MUST START WITH A UPPER LETTER')
+       END;
+END;
+
+
+--ELIMINAMOS EL TRIGGER VALIDATE_PASSWORD_BEFORE_INSERT_LENGHT SI EXISTE
+DROP TRIGGER IF EXISTS VALIDATE_PASSWORD_BEFORE_INSERT_LENGHT;
+
+--CREAMOS EL TRIGGER VALIDATE_PASSWORD_BEFORE_INSERT_LENGHT DONDE VALIDAMOS LA LONGITUD MINIMA DE LA CONTRASEÃ‘A ANTES DE CUALQUIER INSERCION EN LA TABLA USER
+CREATE TRIGGER VALIDATE_PASSWORD_BEFORE_INSERT_LENGHT
+ BEFORE INSERT ON User
+BEGIN
+   SELECT
+      CASE
+		WHEN length(new.password) < 6 THEN
+   	  RAISE (ABORT,'THE PASSWORD MUST HAVE MORE THAN 6 CHARACTERS')
+       END;
+END;
+
+
+--ELIMINAMOS EL TRIGGER VALIDATE_PASSWORD_BEFORE_UPDATE_LENGHT SI EXISTE
+DROP TRIGGER IF EXISTS VALIDATE_PASSWORD_BEFORE_UPDATE_LENGHT;
+
+--CREAMOS EL TRIGGER VALIDATE_PASSWORD_BEFORE_UPDATE_LENGHT DONDE VALIDAMOS LA LONGITUD MINIMA DE LA CONTRASEÃ‘A ANTES DE CUALQUIER ACTUALIZACION EN LA TABLA USER
+CREATE TRIGGER VALIDATE_PASSWORD_BEFORE_UPDATE_LENGHT
+ BEFORE UPDATE ON User
+BEGIN
+   SELECT
+      CASE
+		WHEN length(new.password) < 6 THEN
+   	  RAISE (ABORT,'THE PASSWORD MUST HAVE MORE THAN 6 CHARACTERS')
+       END;
+END;
+
+
+
+
+
+
+--ELIMINAMOS EL TRIGGER validate_phone_before_insert_User SI EXISTE.
+drop TRIGGER IF EXISTS validate_phone_before_insert_User;
+
+--CREAMOS EL TRIGGER validate_phone_before_insert_User DONDE SE VALIDA LA LONGITUD EXACTA DE UN NUMERO DE TELEFONO CORRECTO
+CREATE TRIGGER validate_phone_before_insert_User
+BEFORE INSERT on User
+BEGIN
+	SELECT
+		CASE
+			WHEN length(new.phone) > 12 THEN
+				RAISE (ABORT,'Invalid Phone Adress')
+				End;
+End;
+
+
+
+
+
+--ELIMINAMOS EL TRIGGER validate_phone_before_update_User_caracter SI EXISTE
+drop TRIGGER IF EXISTS validate_phone_before_INSERT_User_caracter;
+
+--CREAMOS EL TRIGGER validate_phone_before_update_User_caracter DONDE SE VALIDA LA UBICACION EXACTA DE LOS GUIONES EN UN NUMERO TELEFONICO
+CREATE TRIGGER validate_phone_before_INSERT_User_caracter
+BEFORE INSERT on User
+BEGIN
+	SELECT
+		CASE
+			WHEN substr(new.phone,'4','1') not like '-' or substr(new.phone,'8','1') not like '-' THEN
+				RAISE (ABORT,'Please introduce this caracter "-" between your number phone or complete correctly your number phone OR VERIFY THE NUMBER ENTERED')
+				End;
+End;
+
+
+
+
+
+--ELIMINAMOS EL TRIGGER validate_phone_before_update_User SI EXISTE
+drop TRIGGER IF EXISTS validate_phone_before_update_User;
+
+--CREAMOS EL TRIGGER validate_phone_before_update_User DONDE SE VALIDA LA LONGITUD CORRECTA DE UN NUMERO TELEFONICO ANTES DE CUALQUIER ACTUALIZACION
+CREATE TRIGGER validate_phone_before_update_User
+BEFORE UPDATE on User
+BEGIN
+	SELECT
+		CASE
+			WHEN length(new.phone) > 12 THEN
+				RAISE (ABORT,'Invalid Phone Adress')
+				End;
+End;
+
+
+
+
+
+--ELIMINAMOS EL TRIGGER validate_phone_before_insert_User_caracter SI EXISTE
+drop TRIGGER IF EXISTS validate_phone_before_UPDATE_User_caracter;
+
+--CREAMOS EL TRIGGER validate_phone_before_insert_User_caracter DONDE SE VALIDA LA UBICACION EXACTA DE LOS GUIONES EN UN NUMERO TELEFONICO ANTES DE CUALQUIER ACTUALIZACION
+CREATE TRIGGER validate_phone_before_UPDATE_User_caracter
+BEFORE UPDATE on User
+BEGIN
+	SELECT
+		CASE
+			WHEN substr(new.phone,'4','1') not like '-' or substr(new.phone,'8','1') not like '-' THEN
+				RAISE (ABORT,'Please introduce this caracter "-" between your number phone or complete correctly your number phone VERIFY THE NUMBER ENTERED')
+				End;
+End;
+
+
+
+
+--Eliminamos si existe el Trigger del historial de usuario
+DROP TRIGGER IF EXISTS load_record_after_update;
+
+--TRIGGER EL CUAL MANEJA EL HISTORIAL DE USUARIOS
+CREATE TRIGGER load_record_after_update 
+AFTER UPDATE ON User
+WHEN old.name <> new.name OR old.password <> new.password OR old.phone <> new.phone OR old.direction <> new.direction OR old.email <> new.email
+BEGIN
+	INSERT INTO load_record(old_id,new_id,old_name,new_name,old_password,new_password,old_phone,new_phone,old_direction,new_direction,old_email,new_email,user_action,created_at) VALUES(
+		old.id,new.id,old.name,new.name,old.password,new.password,old.phone,new.phone,old.direction,new.direction,old.email,new.email,'UPDATE',DATETIME('NOW')) ;
+END;
+
+
+
+
+
+--Eliminamos si existe el Trigger del historial de usuario
+DROP TRIGGER IF EXISTS load_record_after_delete;
+
+--TRIGGER EL CUAL MANEJA EL HISTORIAL DE USUARIOS
+CREATE TRIGGER load_record_after_delete
+AFTER DELETE ON User
+BEGIN
+	INSERT INTO load_record(new_id,new_name,new_password,new_phone,new_direction,new_email,user_action,deleted_at) VALUES(
+		old.id,old.name,old.password,old.phone,old.direction,old.email,'DELETE',DATETIME('NOW')) ;
+END;
+
+
+
+--Eliminamos si existe el Trigger Validate_before_insert_credit_card donde validamos si el metodo de pago introducido existe
+DROP TRIGGER IF EXISTS Validate_before_insert_credit_card;
+
+--TRIGGER el cual valida si el metodo de pago introducido existe
+CREATE TRIGGER Validate_before_insert_credit_card
+BEFORE INSERT ON User
+BEGIN
+	SELECT
+		CASE
+			WHEN new.id_credit_card NOT IN (select id from Credit_card) THEN
+			RAISE(ABORT, 'THE INSERTED CREDIT CARD DOES NOT EXIST')
+		END;	
+END;
+
+
+--Eliminamos si existe el Validate_before_insert_PAYPAL donde validamos si el metodo de pago introducido existe
+DROP TRIGGER IF EXISTS Validate_before_insert_PAYPAL;
+
+--TRIGGER el cual valida si el metodo de pago introducido existe
+CREATE TRIGGER Validate_before_insert_PAYPAL
+BEFORE INSERT ON User
+BEGIN
+	SELECT
+		CASE
+			WHEN new.id_paypal NOT IN (select id from Paypal) THEN
+			RAISE(ABORT, 'THE INSERTED PAYPAL ACOUNT DOES NOT EXIST')
+		END;	
+END;
+
+
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+--TABLA USUARIO:
+
+--ELiminamos si existe la tabla usuarios en la cual se guardan los datos del usuario
+DROP TABLE IF EXISTS User;
+
+--Creamos la tabla User la cual contiene todos los datos del usuario
+CREATE TABLE User (
+	id int PRIMARY key,
+	name text NOT NULL,
+	password TEXT NOT NULL,
+	phone text NOT NULL,
+	direction TEXT NOT NULL,
+	email text NOT NULL UNIQUE,
+	id_credit_card int UNIQUE,
+	id_paypal int UNIQUE
+);
+
+INSERT INTO User (id ,name ,password ,email ,phone, direction, id_paypal)
+VALUES(1,'Juan Doe', 'Suan132','jjj@gamail.com','408-000-9334', 'Los colonos', 2);
+
+--PRUEBA DEL TRIGGER QUE VALIDA LAS password
+INSERT INTO User (id ,name ,password ,email ,phone, direction, id_credit_card)
+VALUES (2,'John Marcos' ,'hon123','john.doe@sqlitetutorial.net', '809-421-2214', 'santo domingo, distrito nacional', 1);
+
+INSERT INTO User (id ,name ,password ,email ,phone, direction, id_credit_card)
+VALUES (3,'Julio Garcia', 'Julio123', 'Garcia@hotmail.com', '829-020-3413', 'Santiago calle #12',2);
+
+--PRUEBA DEL TRIGGER QUE VALIDA LOS NUMEROS TELEFONICOS
+INSERT INTO User (id ,name ,password ,email ,phone, direction, id_paypal)
+VALUES (4,'Johnas Martinez', 'Jhonas123','johnas@gmail.com', '409101-3113', 'La Vega #09',1);
+
+
+INSERT INTO User (id ,name ,password ,email ,phone, direction)
+VALUES (5,'Jose Castillo', 'Jhonas123','aadsad@gmail.com', '809-101-2222', 'La Vega');
+
+
+--mostramos los usuarios cuyo id es par
+SELECT * FROM User WHERE id%2 = 0;
+
+--mostramos los usuarios cuyo id es impar
+SELECT * FROM User WHERE id%2 <> 0;
+
+--ELIMINAMOS EL USUARIO CUYO ID = 1
+DELETE FROM User WHERE id = 5;
+
+--ACTUALIZAMOS EL USUARIO CON ID 1 Y LE CAMBIAMOS EL TELEFONO Y LA CONTRASEÃ‘A
+update User set phone ='801-217-1269', password = 'Pedro212' where id = 1;
+
+--ACTUALIZAMOS EL USUARIO CON ID 2 Y LE CAMBIAMOS EL CORREO ELECTRONICO
+update User set email = 'juan@yahoo.com', name = 'Lucas porf' where id = 2;
+
+--SELECCIONAMOS TODOS LOS DATOS DE LA TABLA USUARIOS 
+SELECT * FROM user;
+
+
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+--TABLA LOAD_RECORD:
+
+--ELIMINAMOS LA TABLA load_record SI EXISTE
+DROP TABLE IF EXISTS load_record;
+
+--CREAMOS LA TABLA load_record DONDE ESTA ALMACENADO EL HISTORIAL DE LA TABLA USUARIOS
+CREATE TABLE load_record(
+	id INTEGER PRIMARY KEY,
+	old_id int,
+	new_id int,
+	old_name text,
+	new_name text,
+	old_password text,
+	new_password text,
+	old_phone text,
+	new_phone text,
+	old_direction TEXT,
+	new_direction TEXT,
+	old_email text,
+	new_email text,
+	user_action text,
+	created_at text,
+	deleted_at text
+);
+
+---------------------------------------------------------------------------------------
+--se filtra por fecha con strftime("el %y para el aÃ±o, %m para el mes, %d para el dia")--
+---------------------------------------------------------------------------------------
+
+--Obtenemos todos los datos de la tabla load_record
+SELECT * FROM Data_Load_record;
+
+--responde a la pregunta de cuantas veces se ha modifcado cada usuario
+SELECT new_name,count(*) FROM DATA_LOAD_RECORD_CREATED GROUP by new_name;
+
+--responde a la pregunta de cuantas veces se ha eliminado cada usuario
+SELECT new_name,count(*) FROM DATA_LOAD_RECORD_DELETED group by new_name;
+
+
+--obtenemos la hora en la que fueron eliminados los usuarios
+select new_name,time(deleted_at) from Data_Load_record WHERE deleted_at is not null; 
+
+--obtenemos la hora en la que fueron creados los usuarios
+select new_name,time(created_at) from Data_Load_record WHERE created_at is not null; 
+
+
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+--TRIGGERS DE LA TABLA BAG:
+
+
+--ELIMINAMOS EL TRIGGER Bag_before_insert_user EN EL CUAL VERIFICAMOS SI LOS USUARIOS EXISTEN
+DROP TRIGGER IF EXISTS Bag_before_insert_user;
+
+--TRIGGER Bag_before_insert_user EN EL CUAL VERIFICAMOS SI EL USUARIO EXISTE
+CREATE TRIGGER Bag_before_insert_user
+BEFORE INSERT ON Bag
+BEGIN
+	SELECT
+		CASE
+			WHEN new.id_user NOT IN (select id from User) THEN
+			RAISE(ABORT, 'THE INSERTED USER DOES NOT EXIST')
+		END;	
+END;
+
+
+
+
+--ELIMINAMOS EL TRIGGER Carrito EN EL CUAL VERIFICAMOS SI LOS PRODUCTOS EXISTEN
+DROP TRIGGER IF EXISTS Bag_before_insert_product;
+
+--TRIGGER Bag_before_insert_product EN EL CUAL VERIFICAMOS SI LOS PRODUCTOS EXISTEN
+CREATE TRIGGER Bag_before_insert_product
+BEFORE INSERT ON Bag
+BEGIN
+	SELECT
+		CASE
+			WHEN new.id_product NOT IN (select id from Products) THEN
+			RAISE(ABORT, 'THE INSERTED PRODUCT DOES NOT EXIST')
+		END;	
+END;
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+--TABLA BAG:
+
+--ELIMINAMOS LA TABLA BAG SI EXISTE
+DROP TABLE IF EXISTS Bag;
+
+--CREAMOS LA TABLA BAG DONDE SE ALMACENAN LOS DATOS DE LOS PRODUCTOS QUE LOS USUARIOS TIENE EN LA BOLSA 
+CREATE TABLE Bag(
+	id INT PRIMARY KEY,
+	id_user INT NOT NULL,
+	id_product INT NOT NULL
+);
+select * from User;
+
+INSERT INTO bag (id, id_user, id_product)
+VALUES (1,1,4);
+
+INSERT INTO bag (id, id_user, id_product)
+VALUES (2,1,5);
+
+INSERT INTO bag (id, id_user, id_product)
+VALUES (3,1,9); 
+
+INSERT INTO bag (id, id_user, id_product)
+VALUES (4,3,18);
+
+INSERT INTO bag (id, id_user, id_product)
+VALUES (5,3,12);
+
+
+
+--SE MUESTRA EL NOMBRE DEL USUARIO,EL NOMBRE DEL PRODUCTO, EL PRECIO DEL PRODUCTO, LA CANTIDAD DEL PRODUCTO QUE QUEDA, 
+--EL DESCUENTO QUE TIENE EL PRODUCTO Y EL TOTAL A PAGAR EN CASO DE QUE DESEE COMPRARLO
+SELECT *,sale_price-(sale_price*quantity_Discount) as 'Total At Purchase' FROM DATA_USER_PRODUCT_BAG;
+
+--SE MUESTRAN TODOS LOS USUARIOS QUE TIENEN ALGUN PRODUCTO EN LA BOLSA
+SELECT * FROM Users_in_bag;
+
+
+--SE MUESTRA LA CANTIDAD DE PRODUCTOS QUE EL USUARIO TIENE EN LA BOLSA(BAG) 
+SELECT * FROM User_Count_Products_in_bag;
+
+
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+--TRIGGERS DE LA TABLA SALES:
+
+
+--ELIMINAMOS EL TRIGGER SALES_before_insert_user EN EL CUAL VERIFICAMOS  SI EL USUARIO INTRODUCIDAS EXISTE
+DROP TRIGGER IF EXISTS SALES_before_insert_user;
+
+--TRIGGER SALES_before_insert_user EN EL CUAL VERIFICAMOS  SI EL USUARIO INTRODUCIDAS EXISTE
+CREATE TRIGGER SALES_before_insert_user
+BEFORE INSERT ON SALES
+BEGIN
+	SELECT
+		CASE
+			WHEN new.id_user NOT IN (select id from User) THEN
+			RAISE(ABORT, 'THE INSERTED User DOES NOT EXIST')
+		END;	
+END;
+
+
+
+--ELIMINAMOS EL TRIGGER SALES_before_insert_product EN EL CUAL VERIFICAMOS SI EL PRODUCTO INTRODUCIDAS EXISTE
+DROP TRIGGER IF EXISTS SALES_before_insert_product;
+
+--TRIGGER SALES_before_insert_product  EN EL CUAL VERIFICAMOS SI EL PRODUCTO INTRODUCIDAS EXISTE
+CREATE TRIGGER SALES_before_insert_product
+BEFORE INSERT ON SALES
+BEGIN
+	SELECT
+		CASE
+			WHEN new.id_product NOT IN (select id from Products) THEN
+			RAISE(ABORT, 'THE INSERTED PRODUCT DOES NOT EXIST')
+		END;	
+END;
+
+
+--ELIMINAMOS EL TRIGGER SALES_before_insert_quantity EN EL CUAL VERIFICAMOS SI hay suficiente stock del producto 
+DROP TRIGGER IF EXISTS SALES_before_insert_quantity;
+
+--TRIGGER SALES_before_insert_quantity EN EL CUAL VERIFICAMOS SI hay suficiente stock del producto 
+CREATE TRIGGER SALES_before_insert_quantity
+BEFORE INSERT ON SALES
+BEGIN
+	SELECT
+		CASE
+			WHEN new.quantity > Products.stock  THEN
+			RAISE(ABORT, 'THERE IS NOT ENOUGH STOCK OF THIS PRODUCT')
+		END
+	FROM Products WHERE new.id_product = Products.id;
+	
+	UPDATE Products SET stock = Products.stock - new.quantity WHERE new.id_product = Products.id;
+END;
+
+--ELIMINAMOS EL TRIGGER SALES_BACK_PRODUCT SI EXISTE
+DROP TRIGGER IF EXISTS SALES_BACK_PRODUCT;
+
+--CREAMOS EL TRIGGER SALES_BACK_PRODUCT DONDE SE CONTROLA LA ACCION DE DEVOLVER UN PRODUCTO
+CREATE TRIGGER SALES_BACK_PRODUCT
+BEFORE DELETE ON SALES
+BEGIN
+	UPDATE Products SET stock = Products.stock + old.quantity
+	WHERE old.id_product = Products.id;
+END;
+
+
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+--TABLA SALES:
+
+--ELIMINAMOS LA TABLA SALES SI EXISTE
+DROP TABLE IF EXISTS SALES;
+
+--CREAMOS LA TABLA SALES SI EXISTE
+CREATE TABLE SALES(
+	id INT PRIMARY key,
+	id_user INT NOT NULL,
+	id_product INT NOT NULL,
+	quantity INT NOT NULL,
+	date text NOT NULL
+);
+
+INSERT INTO SALES (id ,id_user ,id_product ,quantity ,date)
+values (1,1,4, 100,'20-11-2020');
+
+INSERT INTO SALES (id ,id_user ,id_product ,quantity ,date)
+values (2,3,12, 20,'10-09-2019');
+
+INSERT INTO SALES (id ,id_user ,id_product ,quantity ,date)
+values (3,2,20, 25,'09-10-2020');
+
+INSERT INTO SALES (id ,id_user ,id_product ,quantity ,date)
+values (4,4,18, 25,'19-11-2019');
+
+
+--SE MUESSTRA UNA SUPER CONSULTA PARA PODER VER LOS DATOS DE SALES ENLAZADOS
+SELECT * FROM DATA_SALES_ALL;
+
+
+delete from SALES where id = 2;
+
+
+--SE MUESTRAN TODOS LOS DATOS DE LAS VENTAS REALIZADAS DESDE UNA FECHA ESPECIFICA HASTA HOY
+SELECT * FROM DATA_SALES_ALL where date BETWEEN '10-01-2019' and date('now');
+
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+
+--TRIGGER DE LA TABLA CREDIT CARD
+
+--ELIMINAMOS EL TRIGGER Credit_card_BEFORE_INSERT_name EN EL CUAL VERIFICAMOS SI LA TARJETA DE CREDITO INGRESADA ES ACEPTADA 
+DROP TRIGGER IF EXISTS Credit_card_BEFORE_INSERT_name;
+
+--CREAMOS EL TRIGGER Credit_card_BEFORE_INSERT_name EN EL CUAL VERIFICAMOS SI LA TARJETA DE CREDITO INGRESADA ES ACEPTADA 
+CREATE TRIGGER Credit_card_BEFORE_INSERT_name
+BEFORE INSERT ON Credit_card
+BEGIN
+	SELECT
+		CASE
+			WHEN new.name_of_credit_card NOT LIKE 'MASTERCARD' and new.name_of_credit_card not like 'VISA' and
+			new.name_of_credit_card not like 'DEBIT' and new.name_of_credit_card not like 'CLEARPAY' and
+			new.name_of_credit_card not like 'AFTERPAY' and new.name_of_credit_card not like
+			'VISA DEBIT' and new.name_of_credit_card not like 'AMERICAN EXPRESS' and new.name_of_credit_card not like 'MAESTRO' and
+			new.name_of_credit_card not like 'DINERS CLUB INTERNATIONAL' THEN 
+			RAISE(ABORT, 'WE DO NOT ACCEPT THIS TYPE OF CREDIT CARD')
+		END;	
+END;
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+
+
+--TABLA CREDIT CARD:
+
+--ELIMINAMOS LA TABLA Credit_card SI EXISTE
+DROP TABLE IF EXISTS Credit_card;
+
+--CREAMOS LA TABLA Credit_card DONDE ALMACENAMOS LOS DATOS DE TODAS LAS TARJETAS DE CREDITO
+CREATE TABLE Credit_card(
+	id INT PRIMARY KEY,
+	name_of_credit_card TEXT NOT NULL,
+	code TEXT NOT NULL UNIQUE
+);
+
+
+INSERT INTO credit_card (id, name_of_credit_card, code) 
+values (1 ,'Visa' ,'123 567 892');
+
+
+INSERT INTO credit_card (id, name_of_credit_card, code) 
+values (2 ,'mastercard' ,'235 018 009');
+
+
+select * from credit_card;
+
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+
+--TRIGGERS DE LA TABLA PAYPAL:
+
+--Eliminamos si existe el trigger de validacion para el correo electronico de la cuenta de paypal
+drop TRIGGER IF EXISTS validate_email_before_insert_paypal;
+
+--Trigger que valida la entrada del correo electronico de la cuenta de Paypal
+CREATE TRIGGER validate_email_before_insert_paypal
+ BEFORE INSERT ON Paypal
+BEGIN
+   SELECT
+      CASE	
+		WHEN NEW.email NOT LIKE '%_@__%.__%' THEN
+		RAISE (ABORT,'Invalid Email Address')
+       END;
+END;
+
+
+
+--Eliminamos si existe el trigger de validacion para el correo electronico de la cuenta de paypal
+drop TRIGGER IF EXISTS validate_email_before_update_paypal;
+
+--Trigger que valida la entrada del correo electronico de la cuenta de Paypal
+CREATE TRIGGER validate_email_before_update_paypal
+ BEFORE UPDATE ON Paypal
+BEGIN
+   SELECT
+      CASE	
+		WHEN NEW.email NOT LIKE '%_@__%.__%' THEN
+		RAISE (ABORT,'Invalid Email Address')
+       END;
+END;
+
+
+DROP TRIGGER IF EXISTS VALIDATE_PASSWORD_BEFORE_INSERT_paypal;
+
+CREATE TRIGGER VALIDATE_PASSWORD_BEFORE_INSERT_paypal
+BEFORE INSERT ON Paypal
+BEGIN
+	SELECT
+		CASE
+			WHEN substr(new.password,'1','1') <> upper(substr(new.password,'1','1'))THEN
+				RAISE (ABORT,'THE PASSWORD MUST START WITH A UPPER LETTER')
+		End;
+End;
+
+
+DROP TRIGGER IF EXISTS VALIDATE_PASSWORD_BEFORE_UPDATE_paypal;
+
+CREATE TRIGGER VALIDATE_PASSWORD_BEFORE_UPDATE_paypal
+ BEFORE UPDATE ON Paypal
+BEGIN
+   SELECT
+      CASE
+		WHEN substr(new.password,'1','1') <> upper(substr(new.password,'1','1')) THEN
+   	  RAISE (ABORT,'THE PASSWORD MUST START WITH A UPPER LETTER')
+       END;
+END;
+
+
+DROP TRIGGER IF EXISTS VALIDATE_PASSWORD_BEFORE_INSERT_paypal_length;
+
+CREATE TRIGGER VALIDATE_PASSWORD_BEFORE_INSERT_paypal_length
+ BEFORE INSERT ON Paypal
+BEGIN
+   SELECT
+      CASE
+		WHEN length(new.password) < 6 THEN
+   	  RAISE (ABORT,'THE PASSWORD MUST HAVE MORE THAN 6 CHARACTERS')
+       END;
+END;
+
+
+DROP TRIGGER IF EXISTS VALIDATE_PASSWORD_BEFORE_update_paypal_length;
+
+CREATE TRIGGER VALIDATE_PASSWORD_BEFORE_update_paypal_length
+ BEFORE update ON Paypal
+BEGIN
+   SELECT
+      CASE
+		WHEN length(new.password) < 6 THEN
+   	  RAISE (ABORT,'THE PASSWORD MUST HAVE MORE THAN 6 CHARACTERS')
+       END;
+END;
+
+
+--ELIMINAMOS EL TRIGGER validate_phone_before_insert_PAYPAL_caracter SI EXISTE
+drop TRIGGER IF EXISTS validate_phone_before_insert_PAYPAL_caracter;
+
+--CREAMOS EL TRIGGER validate_phone_before_insert_User_caracter DONDE SE VALIDA LA UBICACION EXACTA DE LOS GUIONES EN UN NUMERO TELEFONICO ANTES DE CUALQUIER ACTUALIZACION
+CREATE TRIGGER validate_phone_before_insert_PAYPAL_caracter
+BEFORE INSERT on Paypal
+BEGIN
+	SELECT
+		CASE
+			WHEN substr(new.phone,'4','1') not like '-' or substr(new.phone,'8','1') not like '-' THEN
+				RAISE (ABORT,'Please introduce this caracter "-" between your number phone or complete correctly your number phone VERIFY THE NUMBER ENTERED')
+				End;
+End;
+
+
+
+
+--ELIMINAMOS EL TRIGGER validate_phone_before_insert_User_caracter SI EXISTE
+drop TRIGGER IF EXISTS validate_phone_before_UPDATE_PAYPAL_caracter;
+
+--CREAMOS EL TRIGGER validate_phone_before_insert_User_caracter DONDE SE VALIDA LA UBICACION EXACTA DE LOS GUIONES EN UN NUMERO TELEFONICO ANTES DE CUALQUIER ACTUALIZACION
+CREATE TRIGGER validate_phone_before_UPDATE_PAYPAL_caracter
+BEFORE UPDATE on PAYPAL
+BEGIN
+	SELECT
+		CASE
+			WHEN substr(new.phone,'4','1') not like '-' or substr(new.phone,'8','1') not like '-' THEN
+				RAISE (ABORT,'Please introduce this caracter "-" between your number phone or complete correctly your number phone VERIFY THE NUMBER ENTERED')
+				End;
+End;
+
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+
+--TABLA PAYPAL
+
+--ELIMINAMOS LA TABLA PAYPAL SI EXISTE
+DROP TABLE IF EXISTS Paypal;
+
+--CREAMOS LA TABLA PAYPAL DONDE SE ALMACENAN LOS DATOS DE TODAS LAS CUENTAS DE PAYPAL
+CREATE TABLE Paypal(
+	id INT PRIMARY KEY,
+	email TEXT NOT NULL UNIQUE,
+	password TEXT NOT NULL
+);
+
+INSERT INTO Paypal (id, email, password) 
+values (1,'felipe@gmail.com', 'Febobojbo');
+
+INSERT INTO Paypal (id, email, password) 
+values (2,'Ignasio@hotmail.com', 'Ksad11');
+
+
+UPDATE Paypal set password = 'Sssssss' where id = 1;
+
+SELECT * FROM Paypal;
+
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+
+--TRIGGERS DE LA TABLA PRODUCTS 
+
+
+--ELIMINAMOS EL TRIGGER Products_before_insert_product_SUPPLIER EN EL CUAL VERIFICAMOS  SI LOS SUPLIDORES INTRODUCIDOS EXISTEN
+DROP TRIGGER IF EXISTS Products_before_insert_product_SUPPLIER;
+
+--TRIGGER Products_before_insert_product_SUPPLIER EN EL CUAL VERIFICAMOS SI LOS SUPLIDORES INTRODUCIDOS EXISTEN
+CREATE TRIGGER Products_before_insert_product_SUPPLIER
+BEFORE INSERT ON Products
+BEGIN
+	SELECT
+		CASE
+			WHEN new.id_supplier NOT IN (select id from Supplier) THEN
+			RAISE(ABORT, 'THE INSERTED Supplier DOES NOT EXIST')
+		END;	
+END;
+
+
+
+
+--ELIMINAMOS EL TRIGGER Products_before_insert_product_CATEGORY EN EL CUAL VERIFICAMOS  SI LAS CATEGORIAS INTRODUCIDAS EXISTEN
+DROP TRIGGER IF EXISTS Products_before_insert_product_CATEGORY;
+
+--TRIGGER Products_before_insert_product_CATEGORY EN EL CUAL VERIFICAMOS SI LAS CATEGORIAS INTRODUCIDAS EXISTEN
+CREATE TRIGGER Products_before_insert_product_CATEGORY
+BEFORE INSERT ON Products
+BEGIN
+	SELECT
+		CASE
+			WHEN new.id_category NOT IN (select id from Category) THEN
+			RAISE(ABORT, 'THE INSERTED CATEGORY DOES NOT EXIST')
+		END;	
+END;
+
+
+--ELIMINAMOS EL TRIGGER Products_before_insert_product_SALE_PRICE EN EL CUAL VERIFICAMOS  SI LAS CATEGORIAS INTRODUCIDAS EXISTEN
+DROP TRIGGER IF EXISTS Products_before_insert_product_SALE_PRICE;
+
+--TRIGGER Products_before_insert_product_SALE_PRICE EN EL CUAL VERIFICAMOS SI LAS CATEGORIAS INTRODUCIDAS EXISTEN
+CREATE TRIGGER Products_before_insert_product_SALE_PRICE
+BEFORE INSERT ON Products
+BEGIN
+	SELECT
+		CASE
+			WHEN new.sale_price < new.purchase_price THEN
+			RAISE(ABORT, 'THE SALE PRICE MUST BE HIGHER')
+		END;	
+END;
+
+--ELIMINAMOS EL TIGGER Products_before_update BLOQUEAMOS LAS ACTUALIZACIONES EN LA TABLA Products
+DROP TRIGGER IF EXISTS Products_before_update;
+
+--TRIGGER Products_before_update DONDE BLOQUEAMOS LAS ACTUALIZACIONES EN LA TABLA Products
+CREATE TRIGGER Products_before_update
+BEFORE UPDATE ON Products
+BEGIN
+	SELECT
+		CASE
+			WHEN new.sale_price<>old.sale_price THEN
+			RAISE (ABORT,'THE PRICES OF ALL PRODUCTS ARE FROZEN')
+		END
+		FROM Products WHERE new.id = Products.id;
+END;
+
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+
+
+DROP TABLE IF EXISTS Products;
+
+CREATE TABLE Products(
+	id INT PRIMARY KEY,
+	name TEXT NOT NULL,
+	id_supplier INT NOT NULL,
+	purchase_price REAL NOT NULL,
+	sale_price REAL NOT NULL,
+	entry_date TEXT NOT NULL,
+	size TEXT NOT NULL,
+	id_category INT NOT NULL,
+	stock INT NOT NULL,
+	quantity_Discount REAL NOT NULL
+);
+
+
+
+INSERT INTO Products (id ,name ,id_supplier ,purchase_price ,sale_price ,entry_date ,size,id_category ,stock ,quantity_Discount)
+VALUES (1 ,'Abrigo informal de color sÃ³lido con cuello en V para hombre Medio Camisa' ,1 ,2990.000, 3050.000 ,datetime('now') ,'S',11 ,400 ,0.37);
+
+INSERT INTO Products (id ,name ,id_supplier ,purchase_price ,sale_price ,entry_date ,size,id_category ,stock ,quantity_Discount)
+VALUES (2 ,'INCERUN Camisa con estampado de vacaciones de cuello alto para hombre' ,2 ,1700.000, 1800.000 ,datetime('now') ,'M',12 ,600 ,0.37);
+
+INSERT INTO Products (id ,name ,id_supplier ,purchase_price ,sale_price ,entry_date ,size,id_category ,stock ,quantity_Discount)
+VALUES (3 ,'CÃ¡rdigan de abrigo negro liso de longitud media irregular de estilo japonÃ©s para hombre' ,1 ,2700.000, 2800.000 ,datetime('now') ,'L',13 ,200 ,0.58);
+
+INSERT INTO Products (id ,name ,id_supplier ,purchase_price ,sale_price ,entry_date ,size,id_category ,stock ,quantity_Discount)
+VALUES (4 ,'Pantalones cortos con bolsillos sueltos con cordÃ³n sÃ³lido para hombre Mono' ,1 ,1800.000, 2000.000 ,datetime('now') ,'S',15 ,300 ,0.32);
+
+INSERT INTO Products (id ,name ,id_supplier ,purchase_price ,sale_price ,entry_date ,size,id_category ,stock ,quantity_Discount)
+VALUES (5 ,'Sudaderas con capucha de bolsillo de manga larga con cremallera y cordÃ³n de invierno y primavera para hombre' ,2 ,2300.000, 2400.000 ,datetime('2020-05-28'),'XL',16 ,700 ,0.39);
+
+INSERT INTO Products (id ,name ,id_supplier ,purchase_price ,sale_price ,entry_date ,size,id_category ,stock ,quantity_Discount)
+VALUES (6 ,'Hombres Invierno Navidad Ciervos Estampado Crew Cuello SuÃ©ter de punto esponjoso' ,2 ,1600.000, 1700.000 ,datetime('2019-03-30'),'L',17 ,500 ,0.00);
+
+INSERT INTO Products (id ,name ,id_supplier ,purchase_price ,sale_price ,entry_date ,size,id_category ,stock ,quantity_Discount)
+VALUES (7 ,'Abrigo casual de pana de otoÃ±o para hombre' ,2 ,2600.000, 2700.000 ,datetime('2019-10-20'),'S',18 ,570 ,0.37);
+
+INSERT INTO Products (id ,name ,id_supplier ,purchase_price ,sale_price ,entry_date ,size,id_category ,stock ,quantity_Discount)
+VALUES (8 ,'YOINS BASICS Hombres Raya lateral Cremallera Doble bolsillo Patchwork Casual Pantalones' ,2 ,2150.000, 2300.000 ,datetime('now'),'M',19 ,270 ,0.58);
+
+INSERT INTO Products (id ,name ,id_supplier ,purchase_price ,sale_price ,entry_date ,size,id_category ,stock ,quantity_Discount)
+VALUES (9 ,'Los hombres estiran el agujero del bordado flaco rasgado rayado Jeans' ,1 ,3150.000, 3200.000 ,datetime('now'),'M',20 ,70 ,0.42);
+
+INSERT INTO Products (id ,name ,id_supplier ,purchase_price ,sale_price ,entry_date ,size,id_category ,stock ,quantity_Discount)
+VALUES (10 ,'YOINS BASICS Cuello alto Mangas largas Bodycon Mini Vestido' ,1 ,900.000, 1000.000 ,datetime('2019-09-15'),'S',1 ,620 ,0.41);
+
+INSERT INTO Products (id ,name ,id_supplier ,purchase_price ,sale_price ,entry_date ,size,id_category ,stock ,quantity_Discount)
+VALUES (11 ,'YOINS BASICS Camiseta corta de manga larga lisa con hombros descubiertos para mujer' ,1 ,900.000, 1000.000 ,datetime('2019-12-23'),'M',2 ,920 ,0.41);
+
+INSERT INTO Products (id ,name ,id_supplier ,purchase_price ,sale_price ,entry_date ,size,id_category ,stock ,quantity_Discount)
+VALUES (12 ,'YOINS Blusa de manga larga con cuello en V y ribete de lunares' ,1 ,2650.000, 2800.000 ,datetime('now'),'L',3 ,20 ,0.41);
+
+INSERT INTO Products (id ,name ,id_supplier ,purchase_price ,sale_price ,entry_date ,size,id_category ,stock ,quantity_Discount)
+VALUES (13 ,'YOINS Grey Finger PatrÃ³n Crew Cuello Sudadera de manga larga' ,2 ,1950.000, 2000.000 ,datetime('now'),'XL',4 ,200 ,0.41);
+
+INSERT INTO Products (id ,name ,id_supplier ,purchase_price ,sale_price ,entry_date ,size,id_category ,stock ,quantity_Discount)
+VALUES (14 ,'YOINS Mock Cuello Slit DiseÃ±o Top de punto de manga larga' ,2 ,1450.000, 1500.000 ,datetime('now'),'S',5 ,40 ,0.41);
+
+INSERT INTO Products (id ,name ,id_supplier ,purchase_price ,sale_price ,entry_date ,size,id_category ,stock ,quantity_Discount)
+VALUES (15 ,'Chaqueta verde de terciopelo a rayas con parche frontal y cremallera' ,1 ,1300.000, 1400.000 ,datetime('2020-01-31'),'L',6 ,400 ,0.12);
+
+INSERT INTO Products (id ,name ,id_supplier ,purchase_price ,sale_price ,entry_date ,size,id_category ,stock ,quantity_Discount)
+VALUES (16 ,'Leggings deportivos con costuras de malla de secado rÃ¡pido' ,1 ,1900.000, 2000.000 ,datetime('2020-11-11'),'M',7 ,480 ,0.41);
+
+INSERT INTO Products (id ,name ,id_supplier ,purchase_price ,sale_price ,entry_date ,size,id_category ,stock ,quantity_Discount)
+VALUES (17 ,'YOINS CinturÃ³n DiseÃ±o Bolsillos laterales Pantalones' ,1 ,1600.000, 1700.000 ,datetime('now'),'S',8 ,180 ,0.41);
+
+INSERT INTO Products (id ,name ,id_supplier ,purchase_price ,sale_price ,entry_date ,size,id_category ,stock ,quantity_Discount)
+VALUES (18 ,'Conjunto de pijama de cintura con cordÃ³n y mangas cortas con cuello en V' ,2 ,1800.000, 2000.000 ,datetime('now'),'M',9 ,580 ,0.29);
+
+INSERT INTO Products (id ,name ,id_supplier ,purchase_price ,sale_price ,entry_date ,size,id_category ,stock ,quantity_Discount)
+VALUES (19 ,'Sombrero de lana de punto casual' ,1 , 570.000, 580.000 ,datetime('now'),'S',10 ,1080 ,0.44);
+
+INSERT INTO Products (id ,name ,id_supplier ,purchase_price ,sale_price ,entry_date ,size,id_category ,stock ,quantity_Discount)
+VALUES (20 ,'6 pares de aretes decorativos con perlas de imitaciÃ³n y diamantes de imitaciÃ³n' ,2 , 360.000, 380.000 ,datetime('2020-02-01'),'S',10 ,980 ,0.43);
+
+--SELECCIONAMOS TODOS LOS DATOS DEL PRODUCTO PERO SE MUESTRAN DATOS SIN ENLAZAR ES DECIR LOS ID DE LAS CLAVES FORANEAS
+SELECT * FROM Products;
+
+--SE MUESTRAN LOS DATOS DEL SUPLIDOR JUNTO CON LOS DEL PRODUCTO
+SELECT * FROM DATA_PRODUCT_SUPPLIER;
+
+--SE MUESTRAN TODOS LOS DATOS IMPORTANTES DEL PRODUCTO ENLAZADOS CON SUS TABLAS CORRESPONDIENTES
+SELECT * FROM DATA_PRODUCT_ALL;
+
+--PRUEBA PARA EL TRIGGER Products_before_update
+UPDATE Products SET sale_price = 500.00 WHERE ID = 3;
+
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+
+--TRIGGERS DE LA TABLA Category
+
+--ELIMINAMOS EL TRIGGER VALIDATE_sex_BEFORE_INSERT_category SI EXISTE
+DROP TRIGGER IF EXISTS VALIDATE_sex_BEFORE_INSERT_category;
+
+--CREAMOS EL TRIGGER VALIDATE_sex_BEFORE_INSERT_category DONDE SE VALIDA EL SEXO DEL USO PARA UN PRODUCTO
+CREATE TRIGGER VALIDATE_sex_BEFORE_INSERT_category
+ BEFORE INSERT ON Category
+BEGIN
+   SELECT
+      CASE
+		WHEN new.sex not like 'M' and new.sex not like 'F' THEN
+   	  RAISE(ABORT,'IF YOU ARE A MAN ENTER PLEASE A "M" IF YOU ARE A WOMAN ENTER PLEASE A "F" ')
+       END;
+END;
+
+
+--ELIMINAMOS EL TRIGGER VALIDATE_SEASON_BEFORE_INSERT_CATEGORY SI EXISTE
+DROP TRIGGER IF EXISTS VALIDATE_SEASON_BEFORE_INSERT_CATEGORY;
+
+--CREAMOS EL TRIGGER VALIDATE_SEASON_BEFORE_INSERT_CATEGORY DONDE VALIDAMOS QUE LAS TEMPORADAS INTRODUCIDAS SON LAS CORRECTAS 
+CREATE TRIGGER VALIDATE_SEASON_BEFORE_INSERT_CATEGORY
+BEFORE INSERT ON Category
+BEGIN
+	SELECT
+		CASE
+			WHEN new.name not like 'Dresses' and new.name not like 'Long Sleeve Tees' and new.name not like 'Blouses' and new.name not like 'Sweatshirts and Hoodies' 
+				and new.name not like 'Sweters' and new.name not like 'Coat and Jackets' and new.name not like 'Leggins' and new.name not like 'Bottoms'
+				and new.name not like 'Sleepwear' and new.name not like 'Accesories' and new.name not like 'New in' and new.name not like 'Shirts'
+				and new.name not like 'Cardigans' and new.name not like 'T-Shirts and Tanks' and new.name not like 'Jumpsuits' and new.name not like 'Hoodies'
+				and new.name not like 'Sweaters' and new.name not like 'Coats and Jackets' and new.name not like 'Casual Pants' and new.name not like 'Jeans' THEN
+			RAISE(ABORT, 'PLEASE ENTER ONE OF THE CORRECT CATEGORY')
+		END;
+END;
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+
+--TABLA Category:
+
+--ELIMINAMOS LA TABLA Category SI EXISTE
+DROP TABLE IF EXISTS Category;
+
+--CREAMOS LA TABLA Category DONDE SE ALMACENAN LOS DATOS DE LAS DISTINTAS CATEGORIAS QUE PUEDE TENER UN PRODUCTO
+CREATE TABLE Category(
+	id INT PRIMARY KEY,
+	name TEXT NOT NULL,
+	sex TEXT NOT NULL  /*SI EL SEXO ES MASCULINO SEX = 'M' SI ES FEMENINO SEX = 'F'*/
+);
+
+
+INSERT INTO Category (id, name, sex)
+VALUES (1,'Dresses','F');
+
+INSERT INTO Category (id, name, sex )
+VALUES (2, 'Long Sleeve Tees','F');
+
+INSERT INTO Category (id, name, sex)
+VALUES (3, 'Blouses', 'F');
+
+INSERT INTO Category (id, name, sex)
+VALUES (4,'Sweatshirts and Hoodies', 'F');
+
+INSERT INTO Category (id, name, sex)
+VALUES (5, 'Sweters', 'F');
+
+INSERT INTO Category (id, name, sex)
+VALUES (6,'Coat and Jackets', 'F');
+
+INSERT INTO Category (id, name, sex)
+VALUES (7, 'Leggins', 'F');
+
+INSERT INTO Category (id, name, sex)
+VALUES (8, 'Bottoms', 'F');
+
+INSERT INTO Category (id, name, sex)
+VALUES (9, 'Sleepwear', 'F');
+
+INSERT INTO Category (id, name, sex)
+VALUES (10, 'Accesories', 'F');
+
+INSERT INTO Category (id, name, sex)
+VALUES (11, 'New In', 'M');
+
+INSERT INTO Category (id, name, sex)
+VALUES (12, 'Shirts', 'M');
+
+INSERT INTO Category (id, name, sex)
+VALUES (13, 'Cardigans', 'M');
+
+INSERT INTO Category (id, name, sex)
+VALUES (14, 'T-Shirts and Tanks', 'M');
+
+INSERT INTO Category (id, name, sex)
+VALUES (15, 'Jumpsuits', 'M');
+
+INSERT INTO Category (id, name, sex)
+VALUES (16, 'Hoodies', 'M');
+
+INSERT INTO Category (id, name, sex)
+VALUES (17, 'Sweaters', 'M');
+
+INSERT INTO Category (id, name, sex)
+VALUES (18, 'Coats and Jackets', 'M');
+
+INSERT INTO Category (id, name, sex)
+VALUES (19, 'Casual pants', 'M');
+
+
+INSERT INTO Category (id, name, sex)
+VALUES (20, 'Jeans', 'M');
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+
+--TRIGGERS DE LA TABLA Supplier:
+
+--ELIMINAMOS EL TRIGGER VALIDATE_email_BEFORE_INSERT_supplier SI EXISTE
+DROP TRIGGER IF EXISTS VALIDATE_email_BEFORE_INSERT_supplier;
+
+--CREAMOS EL TRIGGER VALIDATE_email_BEFORE_INSERT_supplier DONDE VALIDAMOS EL CORREO ELECTRONICO ANTES DE CUALQUIER INSERCION
+CREATE TRIGGER VALIDATE_email_BEFORE_INSERT_supplier
+BEFORE INSERT ON Supplier
+BEGIN
+	SELECT
+		CASE
+			WHEN NEW.email NOT LIKE '%_@__%.__%' THEN
+			RAISE (ABORT,'Invalid Email Address')
+		END;
+END;
+
+--ELIMINAMOS EL TRIGGER VALIDATE_email_BEFORE_update_supplier SI EXISTE
+DROP TRIGGER IF EXISTS VALIDATE_email_BEFORE_update_supplier;
+
+--CREAMOS EL TRIGGER VALIDATE_email_BEFORE_update_supplier DONDE VALIDAMOS EL CORREO ELECTRONICO ANTES DE CUALQUIER ACTUALIZACION
+CREATE TRIGGER VALIDATE_email_BEFORE_update_supplier
+BEFORE UPDATE ON Supplier
+BEGIN
+	SELECT
+		CASE
+			WHEN NEW.email NOT LIKE '%_@__%.__%' THEN
+			RAISE (ABORT,'Invalid Email Address')
+		END;
+END;
+
+
+--ELIMINAMOS EL TRIGGER validate_phone_before_insert_supplier SI EXISTE 
+DROP TRIGGER IF EXISTS validate_phone_before_insert_supplier;
+
+--CREAMOS EL TRIGGER validate_phone_before_insert_supplier DONDE VALIDAMOS LA LONGITUD CORRECTA DE UN NUMERO TELEFONICO
+CREATE TRIGGER validate_phone_before_insert_supplier
+BEFORE INSERT on Supplier
+BEGIN
+	SELECT
+		CASE
+			WHEN length(new.phone) > 12 THEN
+				RAISE (ABORT,'Invalid Phone Adress')
+				End;
+End;
+
+
+
+
+
+--ELIMINAMOS EL TRIGGER validate_phone_before_update_supplier_caracter SI EXISTE
+DROP TRIGGER IF EXISTS validate_phone_before_update_supplier_caracter;
+
+--CREAMOS EL TRIGGER validate_phone_before_update_supplier_caracter DONDE SE VALIDA LA POSICION CORRECTA DE LOS CARACTERES EN UN NUMERO TELEFONICO
+CREATE TRIGGER validate_phone_before_update_supplier_caracter
+BEFORE update on Supplier
+BEGIN
+	SELECT
+		CASE
+			WHEN substr(new.phone,'4','1') not like '-' or substr(new.phone,'8','1') not like '-' THEN
+				RAISE (ABORT,'Please introduce this caracter "-" between your number phone or complete correctly your number phone OR VERIFY THE NUMBER ENTERED')
+				End;
+End;
+
+
+--ELIMINAMOS EL TRIGGER validate_phone_before_update_supplier SI EXISTE
+drop TRIGGER IF EXISTS validate_phone_before_update_supplier;
+
+--CREAMOS EL TRIGGER validate_phone_before_update_supplier DONDE VALIDAMOS LA LONGITUD CORRECTA DE UN NUMERO TELEFONICO ANTES DE CUALQUIER ACTUALIZACION
+CREATE TRIGGER validate_phone_before_update_supplier
+BEFORE UPDATE on Supplier
+BEGIN
+	SELECT
+		CASE
+			WHEN length(new.phone) > 12 THEN
+				RAISE (ABORT,'Invalid Phone Adress')
+				End;
+End;
+
+
+
+--ELIMINAMOS EL TRIGGER validate_phone_before_insert_supplier_caracter SI EXISTE
+drop TRIGGER IF EXISTS validate_phone_before_insert_supplier_caracter;
+
+--CREAMOS EL TRIGGER validate_phone_before_insert_supplier_caracter DONDE VALIDAMOS LA POSICION CORRECTA DE LOS CARACTERES EN UN NUMERO TELEFONICO
+CREATE TRIGGER validate_phone_before_insert_supplier_caracter
+BEFORE INSERT on Supplier
+BEGIN
+	SELECT
+		CASE
+			WHEN substr(new.phone,'4','1') not like '-' or substr(new.phone,'8','1') not like '-' THEN
+				RAISE (ABORT,'Please introduce this caracter "-" between your number phone or complete correctly your number phone VERIFY THE NUMBER ENTERED')
+				End;
+End;
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+
+--TABLA Supplier:
+
+--ELIMINAMOS LA TABLA Supplier SI EXISTE
+DROP TABLE IF EXISTS Supplier;
+
+--CREAMOS LA TABLA Supplier DONDE ESTAN ALMACENADOS LOS DATOS DE LOS SUPLIDORES DE LA EMPRESA
+CREATE TABLE Supplier(
+	id INT PRIMARY KEY,
+	name TEXT NOT NULL,
+	direction TEXT NOT NULL,
+	phone TEXT NOT NULL,
+	email TEXT NOT NULL
+);
+
+
+SELECT * FROM Supplier;
+
+INSERT INTO Supplier(id ,name, direction, phone, email)
+VALUES (1,'Ramon ELias', 'Los colonos 123', '809-123-8272', 'Juan@gmail.com');
+
+INSERT INTO Supplier(id ,name, direction, phone, email)
+VALUES (2,'Favio Dario', 'Santo domingo, Distrito nacional', '809-113-8988', 'Dario@gmail.com');
+
+INSERT INTO Supplier(id ,name, direction, phone, email)
+VALUES (3,'Hector Martinez', 'Estados Unidos', '829-010-1010', 'Dario@gmail.com');
+
+INSERT INTO Supplier(id ,name, direction, phone, email)
+VALUES (4,'Juan Hernandez', 'Santiago de los Caballeros ', '849-456-1999', 'Dario@gmail.com');
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+
+--TRIGGER DE LA TABLA SENDING
+
+--ELIMINAMOS EL TRIGGER validate_before_insert_SENDING_SALES
+DROP TRIGGER IF EXISTS validate_before_insert_SENDING_SALES;
+
+--CREAMOS EL TRIGGER validate_before_insert_SENDING_SALES DONDE VALIDAMOS QUE LA VENTA EXISTA
+CREATE TRIGGER validate_before_insert_SENDING_SALES 
+BEFORE INSERT ON SENDING
+BEGIN
+	SELECT
+		CASE
+			WHEN new.id_sales not in (select id from sales) THEN
+			RAISE(ABORT,'THE INSERTED SALES DOES NOT EXIST')
+		END;
+END;
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------------
+--TABLA SENDING:
+
+--ELIMINAMOS LA TABLA SENDING SI EXISTE
+DROP TABLE IF EXISTS SENDING;
+
+--CREAMOS LA TABLA SENDING DONDE SE GUARDAN LOS DATOS DE TODOS LOS ENVIOS
+CREATE TABLE SENDING(
+	id INT PRIMARY KEY,
+	id_sales INT NOT NULL,
+	taxes REAL NOT NULL
+);
+
+
+INSERT INTO sending(id, id_sales, taxes)
+VALUES (1,2,15.00);
+
+INSERT INTO sending(id, id_sales, taxes)
+VALUES (2,1,20.00);
+
+
+select * from Data_sending_all;
